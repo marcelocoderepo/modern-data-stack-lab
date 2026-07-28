@@ -1,0 +1,15 @@
+version: 2
+sources:
+  - name: inventory
+    database: postgresql
+    schema: public
+    tables:
+      - name: customers
+        columns:
+          - name: id
+            data_tests:
+              - unique
+              - not_null
+          - name: email
+            data_tests:
+              - not_null

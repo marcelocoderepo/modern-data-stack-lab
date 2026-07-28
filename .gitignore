@@ -1,0 +1,26 @@
+# --- Segredos / config local ---
+.env
+*.env
+!.env.example
+
+# --- Python venvs ---
+dbt-venv/
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# --- scaffold dbt duplicado/não usado (projeto real está em meu_projeto/) ---
+dbt-lab/
+
+# --- dbt ---
+target/
+dbt_packages/
+logs/
+*/logs/
+
+# --- macOS ---
+.DS_Store
+
+# --- Docker / dados de runtime (não versionar volumes) ---
+data-lab/flink/lib/*.jar
