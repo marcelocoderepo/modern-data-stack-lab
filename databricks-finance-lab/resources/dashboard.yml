@@ -1,0 +1,8 @@
+# Dashboard AI/BI (Lakeview). As queries apontam para workspace.gold.*;
+# se usar outro catálogo, troque "workspace." no .lvdash.json.
+resources:
+  dashboards:
+    radar_financeiro:
+      display_name: Radar de Saúde Financeira — Companhias Abertas
+      file_path: ../src/dashboards/radar_financeiro.lvdash.json
+      warehouse_id: ${var.warehouse_id}

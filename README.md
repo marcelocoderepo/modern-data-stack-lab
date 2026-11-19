@@ -188,6 +188,7 @@ Todas as credenciais deste repositório são **defaults de desenvolvimento local
 ```
 data-lab/       stack Docker Compose (lakehouse, streaming, orquestração, OLAP, vetorial)
 meu_projeto/    projeto dbt (modelos, testes, seeds)
+databricks-finance-lab/  caso de uso Databricks: indicadores financeiros CVM + BCB (SDP medalhão, Dashboard AI/BI, Genie)
 ```
 
 ## Autor

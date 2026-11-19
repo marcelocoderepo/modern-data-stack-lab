@@ -1,0 +1,35 @@
+# Orquestração: extrair -> pipeline SDP -> atualizar dashboard. Agendado diariamente (pausado).
+resources:
+  jobs:
+    radar_financeiro_job:
+      name: radar-financeiro-job
+      schedule:
+        quartz_cron_expression: "0 0 7 * * ?"   # 07:00 todo dia
+        timezone_id: America/Sao_Paulo
+        pause_status: PAUSED                    # despause quando quiser rodar sozinho
+      parameters:
+        - name: catalog
+          default: ${var.catalog}
+        - name: anos
+          default: ${var.anos}
+      tasks:
+        - task_key: extrair_fontes
+          notebook_task:
+            notebook_path: ../src/extract/01_extrair_fontes.py
+          max_retries: 2
+          min_retry_interval_millis: 60000
+
+        - task_key: pipeline_medalhao
+          depends_on:
+            - task_key: extrair_fontes
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.radar_financeiro_sdp.id}
+            full_refresh: false
+
+        - task_key: atualizar_dashboard
+          depends_on:
+            - task_key: pipeline_medalhao
+          dashboard_task:
+            dashboard_id: ${resources.dashboards.radar_financeiro.id}
+            warehouse_id: ${var.warehouse_id}
+
