@@ -1,0 +1,26 @@
+# Databricks Asset Bundle — Radar de Saúde Financeira (CVM + Banco Central)
+# Deploy:  databricks bundle deploy -t dev --var warehouse_id=<id>
+# Rodar:   databricks bundle run -t dev radar_financeiro_job
+bundle:
+  name: radar-saude-financeira
+
+include:
+  - resources/*.yml
+
+variables:
+  catalog:
+    description: Catálogo do Unity Catalog (na Free Edition o padrão é "workspace")
+    default: workspace
+  anos:
+    description: Anos de DFP a extrair da CVM
+    default: "2020-2025"
+  warehouse_id:
+    description: ID do SQL Warehouse usado pelo dashboard (SQL Warehouses → seu warehouse → Connection details)
+
+targets:
+  dev:
+    default: true
+    # Sem "mode: development" de propósito: esse modo prefixa nomes de schemas
+    # (dev_<user>_bronze...) e quebraria os caminhos fixos do Volume e do dashboard.
+    workspace:
+      root_path: ~/.bundle/${bundle.name}/${bundle.target}

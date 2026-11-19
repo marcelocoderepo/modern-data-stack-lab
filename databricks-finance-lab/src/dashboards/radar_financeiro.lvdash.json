@@ -1,0 +1,1194 @@
+{
+  "datasets": [
+    {
+      "name": "ds_kpi",
+      "displayName": "KPIs do último ano completo",
+      "queryLines": [
+        "SELECT ano,\n",
+        "       COUNT(*) AS empresas,\n",
+        "       AVG(CASE WHEN cria_valor THEN 1.0 ELSE 0.0 END) AS pct_cria_valor,\n",
+        "       AVG(CASE WHEN classificacao_risco = 'Crítico' THEN 1.0 ELSE 0.0 END) AS pct_critico,\n",
+        "       percentile_approx(roe, 0.5) AS roe_mediano,\n",
+        "       MAX(cdi_acumulado) AS cdi_acumulado\n",
+        "FROM workspace.gold.indicadores_financeiros\n",
+        "WHERE ano = (SELECT MAX(ano) FROM workspace.gold.macro_anual WHERE meses_ipca = 12) AND situacao = 'ATIVO'\n",
+        "GROUP BY ano\n"
+      ]
+    },
+    {
+      "name": "ds_risco",
+      "displayName": "Classificação de risco por ano",
+      "queryLines": [
+        "SELECT ano, classificacao_risco, COUNT(*) AS empresas\n",
+        "FROM workspace.gold.indicadores_financeiros\n",
+        "WHERE situacao = 'ATIVO'\n",
+        "GROUP BY ano, classificacao_risco\n"
+      ]
+    },
+    {
+      "name": "ds_macro",
+      "displayName": "Macro mensal",
+      "queryLines": [
+        "SELECT mes, selic_fim_mes * 100 AS selic_pct_aa, ipca_12m * 100 AS ipca_12m_pct, dolar_medio\n",
+        "FROM workspace.gold.macro_mensal\n",
+        "WHERE mes >= '2020-01-01'\n"
+      ]
+    },
+    {
+      "name": "ds_roe_cdi",
+      "displayName": "ROE mediano x CDI",
+      "queryLines": [
+        "SELECT i.ano,\n",
+        "       percentile_approx(i.roe, 0.5) * 100 AS roe_mediano_pct,\n",
+        "       MAX(i.cdi_acumulado) * 100 AS cdi_pct,\n",
+        "       MAX(i.ipca_acumulado) * 100 AS ipca_pct\n",
+        "FROM workspace.gold.indicadores_financeiros i\n",
+        "WHERE i.situacao = 'ATIVO'\n",
+        "GROUP BY i.ano\n"
+      ]
+    },
+    {
+      "name": "ds_ind",
+      "displayName": "Indicadores por empresa",
+      "queryLines": [
+        "SELECT nome_empresa, setor, ano, classificacao_risco, motivo_risco,\n",
+        "       receita_liquida / 1e6 AS receita_mi,\n",
+        "       lucro_liquido / 1e6 AS lucro_mi,\n",
+        "       divida_liquida / 1e6 AS divida_liquida_mi,\n",
+        "       roe * 100 AS roe_pct,\n",
+        "       spread_roe_cdi * 100 AS spread_roe_cdi_pp,\n",
+        "       margem_ebit * 100 AS margem_ebit_pct,\n",
+        "       divida_liquida_ebit,\n",
+        "       liquidez_corrente,\n",
+        "       cobertura_financeira\n",
+        "FROM workspace.gold.indicadores_financeiros\n",
+        "WHERE situacao = 'ATIVO'\n"
+      ]
+    },
+    {
+      "name": "ds_setor",
+      "displayName": "Benchmark setorial",
+      "queryLines": [
+        "SELECT setor, ano, qtd_empresas,\n",
+        "       roe_mediano * 100 AS roe_mediano_pct,\n",
+        "       margem_ebit_mediana * 100 AS margem_ebit_mediana_pct,\n",
+        "       divida_liquida_ebit_mediana,\n",
+        "       pct_cria_valor * 100 AS pct_cria_valor,\n",
+        "       pct_critico * 100 AS pct_critico,\n",
+        "       receita_total / 1e9 AS receita_bi\n",
+        "FROM workspace.gold.benchmark_setorial\n",
+        "WHERE qtd_empresas >= 3\n"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "visao_geral",
+      "displayName": "Visão geral",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layout": [
+        {
+          "widget": {
+            "name": "titulo",
+            "multilineTextboxSpec": {
+              "lines": [
+                "# Radar de Saúde Financeira — Companhias Abertas\n",
+                "Companhias não financeiras com registro ATIVO na CVM. Indicadores do último ano completo vs. CDI e IPCA (fontes: CVM DFP e Banco Central SGS).\n"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_empresas",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_kpi",
+                  "fields": [
+                    {
+                      "name": "empresas",
+                      "expression": "SUM(`empresas`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "empresas",
+                  "displayName": "Empresas analisadas"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Empresas analisadas"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 1,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_ano",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_kpi",
+                  "fields": [
+                    {
+                      "name": "ano",
+                      "expression": "MAX(`ano`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "ano",
+                  "displayName": "Ano de referência"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Ano de referência"
+              }
+            }
+          },
+          "position": {
+            "x": 1,
+            "y": 2,
+            "width": 1,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_roe",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_kpi",
+                  "fields": [
+                    {
+                      "name": "roe_mediano",
+                      "expression": "AVG(`roe_mediano`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "roe_mediano",
+                  "displayName": "ROE mediano",
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 1
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "ROE mediano"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 2,
+            "width": 1,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_cdi",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_kpi",
+                  "fields": [
+                    {
+                      "name": "cdi_acumulado",
+                      "expression": "AVG(`cdi_acumulado`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "cdi_acumulado",
+                  "displayName": "CDI acumulado",
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 1
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "CDI acumulado"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 2,
+            "width": 1,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_cria",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_kpi",
+                  "fields": [
+                    {
+                      "name": "pct_cria_valor",
+                      "expression": "AVG(`pct_cria_valor`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "pct_cria_valor",
+                  "displayName": "% com ROE > CDI",
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 1
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "% com ROE > CDI"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 2,
+            "width": 1,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_critico",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_kpi",
+                  "fields": [
+                    {
+                      "name": "pct_critico",
+                      "expression": "AVG(`pct_critico`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "pct_critico",
+                  "displayName": "% em risco crítico",
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 1
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "% em risco crítico"
+              }
+            }
+          },
+          "position": {
+            "x": 5,
+            "y": 2,
+            "width": 1,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "roe_vs_cdi",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_roe_cdi",
+                  "fields": [
+                    {
+                      "name": "ano",
+                      "expression": "`ano`"
+                    },
+                    {
+                      "name": "roe",
+                      "expression": "AVG(`roe_mediano_pct`)"
+                    },
+                    {
+                      "name": "cdi",
+                      "expression": "AVG(`cdi_pct`)"
+                    },
+                    {
+                      "name": "ipca",
+                      "expression": "AVG(`ipca_pct`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "ano",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Ano"
+                },
+                "y": {
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "fields": [
+                    {
+                      "fieldName": "roe",
+                      "displayName": "ROE mediano (%)"
+                    },
+                    {
+                      "fieldName": "cdi",
+                      "displayName": "CDI (%)"
+                    },
+                    {
+                      "fieldName": "ipca",
+                      "displayName": "IPCA (%)"
+                    }
+                  ]
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "As empresas rendem mais que a renda fixa?",
+                "showDescription": true,
+                "description": "ROE mediano das companhias vs. CDI e IPCA acumulados no ano"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "risco_por_ano",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_risco",
+                  "fields": [
+                    {
+                      "name": "ano",
+                      "expression": "`ano`"
+                    },
+                    {
+                      "name": "classificacao_risco",
+                      "expression": "`classificacao_risco`"
+                    },
+                    {
+                      "name": "empresas",
+                      "expression": "SUM(`empresas`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "ano",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Ano"
+                },
+                "y": {
+                  "fieldName": "empresas",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Empresas"
+                },
+                "color": {
+                  "fieldName": "classificacao_risco",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Risco"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Semáforo de risco por ano"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 5,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "macro",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_macro",
+                  "fields": [
+                    {
+                      "name": "mes",
+                      "expression": "`mes`"
+                    },
+                    {
+                      "name": "selic",
+                      "expression": "AVG(`selic_pct_aa`)"
+                    },
+                    {
+                      "name": "ipca12",
+                      "expression": "AVG(`ipca_12m_pct`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "mes",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Mês"
+                },
+                "y": {
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "fields": [
+                    {
+                      "fieldName": "selic",
+                      "displayName": "Selic meta (% a.a.)"
+                    },
+                    {
+                      "fieldName": "ipca12",
+                      "displayName": "IPCA 12m (%)"
+                    }
+                  ]
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Cenário macro: juros e inflação"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 11,
+            "width": 6,
+            "height": 5
+          }
+        }
+      ]
+    },
+    {
+      "name": "empresas",
+      "displayName": "Empresas",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layout": [
+        {
+          "widget": {
+            "name": "f_ano",
+            "queries": [
+              {
+                "name": "f_f_ano_ds_ind",
+                "query": {
+                  "datasetName": "ds_ind",
+                  "fields": [
+                    {
+                      "name": "ano",
+                      "expression": "`ano`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "ano",
+                    "displayName": "Ano",
+                    "queryName": "f_f_ano_ds_ind"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Ano"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "f_setor",
+            "queries": [
+              {
+                "name": "f_f_setor_ds_ind",
+                "query": {
+                  "datasetName": "ds_ind",
+                  "fields": [
+                    {
+                      "name": "setor",
+                      "expression": "`setor`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "setor",
+                    "displayName": "Setor",
+                    "queryName": "f_f_setor_ds_ind"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Setor"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 0,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "f_risco",
+            "queries": [
+              {
+                "name": "f_f_risco_ds_ind",
+                "query": {
+                  "datasetName": "ds_ind",
+                  "fields": [
+                    {
+                      "name": "classificacao_risco",
+                      "expression": "`classificacao_risco`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "classificacao_risco",
+                    "displayName": "Risco",
+                    "queryName": "f_f_risco_ds_ind"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Risco"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 0,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "alavancagem_x_roe",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_ind",
+                  "fields": [
+                    {
+                      "name": "divida_liquida_ebit",
+                      "expression": "`divida_liquida_ebit`"
+                    },
+                    {
+                      "name": "roe_pct",
+                      "expression": "`roe_pct`"
+                    },
+                    {
+                      "name": "classificacao_risco",
+                      "expression": "`classificacao_risco`"
+                    },
+                    {
+                      "name": "nome_empresa",
+                      "expression": "`nome_empresa`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "scatter",
+              "encodings": {
+                "x": {
+                  "fieldName": "divida_liquida_ebit",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Dívida líquida / EBIT (x)"
+                },
+                "y": {
+                  "fieldName": "roe_pct",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "ROE (%)"
+                },
+                "color": {
+                  "fieldName": "classificacao_risco",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Risco"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Alavancagem x Rentabilidade",
+                "showDescription": true,
+                "description": "Cada ponto é uma empresa. Canto inferior direito = muito endividada e pouco rentável."
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "tabela_empresas",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_ind",
+                  "fields": [
+                    {
+                      "name": "nome_empresa",
+                      "expression": "`nome_empresa`"
+                    },
+                    {
+                      "name": "setor",
+                      "expression": "`setor`"
+                    },
+                    {
+                      "name": "ano",
+                      "expression": "`ano`"
+                    },
+                    {
+                      "name": "classificacao_risco",
+                      "expression": "`classificacao_risco`"
+                    },
+                    {
+                      "name": "motivo_risco",
+                      "expression": "`motivo_risco`"
+                    },
+                    {
+                      "name": "receita_mi",
+                      "expression": "`receita_mi`"
+                    },
+                    {
+                      "name": "lucro_mi",
+                      "expression": "`lucro_mi`"
+                    },
+                    {
+                      "name": "roe_pct",
+                      "expression": "`roe_pct`"
+                    },
+                    {
+                      "name": "spread_roe_cdi_pp",
+                      "expression": "`spread_roe_cdi_pp`"
+                    },
+                    {
+                      "name": "margem_ebit_pct",
+                      "expression": "`margem_ebit_pct`"
+                    },
+                    {
+                      "name": "divida_liquida_ebit",
+                      "expression": "`divida_liquida_ebit`"
+                    },
+                    {
+                      "name": "liquidez_corrente",
+                      "expression": "`liquidez_corrente`"
+                    },
+                    {
+                      "name": "cobertura_financeira",
+                      "expression": "`cobertura_financeira`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "nome_empresa",
+                    "displayName": "Empresa"
+                  },
+                  {
+                    "fieldName": "setor",
+                    "displayName": "Setor"
+                  },
+                  {
+                    "fieldName": "ano",
+                    "displayName": "Ano"
+                  },
+                  {
+                    "fieldName": "classificacao_risco",
+                    "displayName": "Risco"
+                  },
+                  {
+                    "fieldName": "motivo_risco",
+                    "displayName": "Motivo"
+                  },
+                  {
+                    "fieldName": "receita_mi",
+                    "displayName": "Receita (R$ mi)"
+                  },
+                  {
+                    "fieldName": "lucro_mi",
+                    "displayName": "Lucro (R$ mi)"
+                  },
+                  {
+                    "fieldName": "roe_pct",
+                    "displayName": "ROE (%)"
+                  },
+                  {
+                    "fieldName": "spread_roe_cdi_pp",
+                    "displayName": "ROE − CDI (p.p.)"
+                  },
+                  {
+                    "fieldName": "margem_ebit_pct",
+                    "displayName": "Margem EBIT (%)"
+                  },
+                  {
+                    "fieldName": "divida_liquida_ebit",
+                    "displayName": "DL/EBIT (x)"
+                  },
+                  {
+                    "fieldName": "liquidez_corrente",
+                    "displayName": "Liquidez corrente (x)"
+                  },
+                  {
+                    "fieldName": "cobertura_financeira",
+                    "displayName": "Cobertura financeira (x)"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Indicadores por empresa"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 8,
+            "width": 6,
+            "height": 10
+          }
+        }
+      ]
+    },
+    {
+      "name": "setores",
+      "displayName": "Setores",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layout": [
+        {
+          "widget": {
+            "name": "f_ano_setor",
+            "queries": [
+              {
+                "name": "f_f_ano_setor_ds_setor",
+                "query": {
+                  "datasetName": "ds_setor",
+                  "fields": [
+                    {
+                      "name": "ano",
+                      "expression": "`ano`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "ano",
+                    "displayName": "Ano",
+                    "queryName": "f_f_ano_setor_ds_setor"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Ano"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "roe_setor",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_setor",
+                  "fields": [
+                    {
+                      "name": "setor",
+                      "expression": "`setor`"
+                    },
+                    {
+                      "name": "roe",
+                      "expression": "AVG(`roe_mediano_pct`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "setor",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Setor"
+                },
+                "y": {
+                  "fieldName": "roe",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "ROE mediano (%)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "ROE mediano por setor"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 3,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "critico_setor",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_setor",
+                  "fields": [
+                    {
+                      "name": "setor",
+                      "expression": "`setor`"
+                    },
+                    {
+                      "name": "critico",
+                      "expression": "AVG(`pct_critico`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "setor",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Setor"
+                },
+                "y": {
+                  "fieldName": "critico",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "% empresas em risco crítico"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Concentração de risco por setor"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 1,
+            "width": 3,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "tabela_setor",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_setor",
+                  "fields": [
+                    {
+                      "name": "setor",
+                      "expression": "`setor`"
+                    },
+                    {
+                      "name": "ano",
+                      "expression": "`ano`"
+                    },
+                    {
+                      "name": "qtd_empresas",
+                      "expression": "`qtd_empresas`"
+                    },
+                    {
+                      "name": "receita_bi",
+                      "expression": "`receita_bi`"
+                    },
+                    {
+                      "name": "roe_mediano_pct",
+                      "expression": "`roe_mediano_pct`"
+                    },
+                    {
+                      "name": "margem_ebit_mediana_pct",
+                      "expression": "`margem_ebit_mediana_pct`"
+                    },
+                    {
+                      "name": "divida_liquida_ebit_mediana",
+                      "expression": "`divida_liquida_ebit_mediana`"
+                    },
+                    {
+                      "name": "pct_cria_valor",
+                      "expression": "`pct_cria_valor`"
+                    },
+                    {
+                      "name": "pct_critico",
+                      "expression": "`pct_critico`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "setor",
+                    "displayName": "Setor"
+                  },
+                  {
+                    "fieldName": "ano",
+                    "displayName": "Ano"
+                  },
+                  {
+                    "fieldName": "qtd_empresas",
+                    "displayName": "Empresas"
+                  },
+                  {
+                    "fieldName": "receita_bi",
+                    "displayName": "Receita (R$ bi)"
+                  },
+                  {
+                    "fieldName": "roe_mediano_pct",
+                    "displayName": "ROE mediano (%)"
+                  },
+                  {
+                    "fieldName": "margem_ebit_mediana_pct",
+                    "displayName": "Margem EBIT mediana (%)"
+                  },
+                  {
+                    "fieldName": "divida_liquida_ebit_mediana",
+                    "displayName": "DL/EBIT mediana (x)"
+                  },
+                  {
+                    "fieldName": "pct_cria_valor",
+                    "displayName": "% ROE > CDI"
+                  },
+                  {
+                    "fieldName": "pct_critico",
+                    "displayName": "% crítico"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Benchmark setorial (setores com 3+ empresas)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 9,
+            "width": 6,
+            "height": 8
+          }
+        }
+      ]
+    }
+  ]
+}

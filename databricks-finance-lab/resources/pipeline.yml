@@ -1,0 +1,21 @@
+# Lakeflow Spark Declarative Pipeline (SDP): bronze -> silver -> gold
+resources:
+  pipelines:
+    radar_financeiro_sdp:
+      name: radar-financeiro-sdp
+      catalog: ${var.catalog}
+      schema: ${resources.schemas.silver.name}   # schema padrão; tabelas usam bronze./silver./gold.
+      serverless: true
+      channel: CURRENT
+      development: true        # troque para false (ou use a UI) quando quiser modo produção
+      continuous: false        # batch disparado pelo job: os dados mudam no máximo 1x/dia
+      configuration:
+        landing_path: /Volumes/${var.catalog}/bronze/landing
+      root_path: ../src/pipeline
+      libraries:
+        - file:
+            path: ../src/pipeline/bronze.py
+        - file:
+            path: ../src/pipeline/silver.py
+        - file:
+            path: ../src/pipeline/gold.sql

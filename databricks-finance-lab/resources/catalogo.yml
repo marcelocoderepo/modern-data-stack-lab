@@ -1,0 +1,23 @@
+# Schemas da arquitetura medalhão + Volume da landing zone.
+resources:
+  schemas:
+    bronze:
+      catalog_name: ${var.catalog}
+      name: bronze
+      comment: Dados crus das fontes (CVM, BCB) + landing zone de arquivos
+    silver:
+      catalog_name: ${var.catalog}
+      name: silver
+      comment: Dados limpos, tipados, deduplicados (reapresentações resolvidas)
+    gold:
+      catalog_name: ${var.catalog}
+      name: gold
+      comment: Modelo dimensional de indicadores financeiros para Dashboards e Genie
+
+  volumes:
+    landing:
+      catalog_name: ${var.catalog}
+      schema_name: ${resources.schemas.bronze.name}
+      name: landing
+      volume_type: MANAGED
+      comment: Arquivos brutos baixados da CVM e do Banco Central
